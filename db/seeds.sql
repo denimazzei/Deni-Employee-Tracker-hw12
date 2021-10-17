@@ -17,5 +17,5 @@ VALUES  ("Blanche", "Devereux", 1, 5),
         ("Dorothy", "Zbornak", 2, 6),
         ("Rose", "Nyland", 3, 7),
         ("Sophia", "Petrillo", 4, 8),
-        ("Stanley", "Zbornak", 2, null)
+        ("Stanley", "Zbornak", 2, 9)
         ;

@@ -1,174 +1,169 @@
 require('dotenv').config();
 const inquirer = require('inquirer');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const cTable = require('console.table');
 
 
 
+const starterQuestions = {
+    viewByDepartment: "View All Employees By Department",
+    viewAllRoles: "View All Roles",
+    viewAllEmployees: "View All Employees",
+    addDepartment: "Add A Department",
+    updateRole: "Update Employee Role",
+    addEmployee: "Add An Employee",
+    removeEmployee: "Remove An Employee",
+    viewByManager: "View All Employees By Manager",
+    quit: "Quit"
+};
 
-// Connect to database
-const db = mysql.createConnection(
-  {
+
+//Connect to database
+const connection = mysql.createConnection({
     host: 'localhost',
-    // MySQL username,
+    port: 3306,
     user: 'root',
-    //MySQL password through .env
+    // Mysql password
     password: process.env.DB_Password,
     database: 'employeeTracker_db'
-  },
-  console.log(`Connected to the employeeTracker_dbdatabase.`)
-);
+});
 
-//Array of questions to initialize tracker
-initEmployeeTracker = () => {
+connection.connect(err => {
+    if (err) throw err;
+    prompt();
+});
+
+
+//starter questions using inquirer then uses switch block statement based on answer selected
+function prompt() {
     inquirer
-        .prompt([
+        .prompt({
+            name: 'starterQ',
+            type: 'list',
+            message: 'What would you like to do?',
+            choices: [
+                starterQuestions.viewByDepartment,
+                starterQuestions.viewAllRoles,
+                starterQuestions.viewAllEmployees,
+                starterQuestions.addDepartment,
+                starterQuestions.updateRole,
+                starterQuestions.addEmployee,
+                starterQuestions.removeEmployee,
+                starterQuestions.viewByManager,
+                starterQuestions.quit
+            ]
+        })
+        .then(answer => {
+            console.log('answer', answer);
+            switch (answer.starterQ) {
+                case starterQuestions.viewByDepartment:
+                    viewByDepartment();
+                    break;
+
+                case starterQuestions.viewAllRoles:
+                    viewAllRoles();
+                    break;
+                
+                case starterQuestions.viewAllEmployees:
+                    viewAllEmployees();
+                    break;
+
+                case starterQuestions.addDepartment:
+                    addDepartment();
+                    break;
+
+                case starterQuestions.updateRole:
+                    remove('role');
+                    break;
+
+                case starterQuestions.addEmployee:
+                    addEmployee();
+                    break;
+
+                case starterQuestions.removeEmployee:
+                    remove('');
+                    break;
+
+                case starterQuestions.viewByManager:
+                    viewByManager();
+                    break;
+
+                case starterQuestions.quit:
+                    connection.end();
+            }
+        });
+}
+
+function viewByDepartment() {
+    const query = `SELECT * FROM department;`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        console.log('view employees by department >>>');
+        console.table(res);
+        prompt();
+    });
+}
+
+function viewAllRoles() {
+    const query = `SELECT role.title, role.salary, employee.id, department.name AS department
+    FROM employee
+    LEFT JOIN role ON (role.id = employee.role_id)
+    LEFT JOIN department ON (department.id = role.department_id)
+    ORDER BY role.title;`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        console.log('view employee roles >>>');
+        console.table(res);
+        prompt();
+    });
+}
+
+function viewAllEmployees() {
+    const query = `SELECT employee.id, employee.first_name, employee.last_name, role.title, role.salary, department.name AS department
+    FROM employee
+    LEFT JOIN employee manager on manager.id = employee.manager_id
+    INNER JOIN role ON (role.id = employee.role_id)
+    INNER JOIN department ON (department.id = role.department_id)
+    ORDER BY employee.id;`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        console.log('view all employess >>>');
+        console.table(res);
+        prompt();
+    });
+}
+
+async function addDepartment() {
+    const addDept = await inquirer.prompt(deptName());
+    connection.query('SELECT department.id, department.name FROM department;', async (err, res) => {
+        if (err) throw err;
+        const { department } = await inquirer.prompt([
+            {
+                name: 'department',
+                type: 'input',
+                message: "What is the name of the new department?: "
+            }
+        ]);
+        const deptID;
+        for (const row of res) {
+            if(row.title === department) {
+                deptID = row.id;
+                continue;
+            }
+        }
+    },
+    console.log('Department has been added. Please view all departments to verify addition.'),
+    connection.query(
+        'INSERT INTO department SET ?',
         {
-      type:"list",
-      name: "starterQ",
-      message: "what would you like to do?",
-      choices: [
-          "view employees",
-          "view employees by department",
-          "add employees",
-          "remove employees",
-          "update employee",
-          "view all departments",
-          "add a department",
-          "view all employee roles",
-          "add employee role",
-          "quit"],
+            id: deptName.id,
+            name: deptName.name
         },
-    ])
-    .then((data)=> {
-        if (data.starterQ = "view all employees") {
-            viewEmployees ();
-        } else if (data.starterQ = "add employees") {
-            addEmployees(data);
-        } else if (data.starterQ = "remove employees") {
-            removeEmployees(data);
-        } else if (data.starterQ = "update employee") {
-            updateEmployee(data);
-        } else if (data.starterQ = "view all departments") {
-            viewAllDepts(data);
-        } else if (data.starterQ = "add a department") {
-            addDepartment(data);
-        } else if (data.starterQ = "view all employee roles") {
-            viewRoles(data);
-        } else if (data.starterQ = "add employee role") {
-            addRoles(data);
+        (err, res) => {
+            if (err) throw err;
+            prompt();
+
         }
-    });
-};    
-
-//Use db query to view all available departments in table
-viewAllDepts = () => {
-    db.query("SELECT * FROM department", (err,rows) => {
-        if(err) throw err;
-
-        console.log('Data received from Db:');
-        console.log(rows);
-    });
-
-    //Array of questions to add new department
-    addDepartment = () => {
-        inquirer
-            .prompt([
-            {
-                type: "input",
-                name: "addDepartment",
-                message: "What's the new department's name?",
-            },
-        ])
-        .then((data) => db.query("add department"), 
-        function (err,results) {
-            console.log("new department added");
-        }
-    );
-    initEmployeeTracker();
-};
-};
-
-//Use db query to view all available roles in table
-viewRoles = () => {
-    db.query("SELECT * FROM roles",(err,rows) => {
-        if(err) throw err; 
-        console.log('Data received from Db:');
-        console.log(rows);
-    });
-
-    //Array of questions to add new department
-    addRoles = () => {
-        inquirer
-            .prompt([
-            {
-                type: "input",
-                name: "title",
-                message: "What role do you want to add?",
-            },
-            {
-                type: "input",
-                name: "salary",
-                message: "What is the annual salary for this role?",
-            },
-            {
-                type: "list",
-                name: "newdepartment",
-                message: "What department does this role belong to?",
-                choices: ["Sales Lead", "Engineering Lead", "Finance Lead", "Legal Lead"],
-            },
-        ])
-        .then((data) => db.query(`${data.newDepartment}`)); 
-        (err, results) => {
-            if(err) throw err; 
-            console.log(`added ${data.title} to database`);
-        }
-    };
-    initEmployeeTracker();
-};
-
-//Use db query to view all employees in table
-viewEmployees = () => {
-    db.query("SELECT * FROM employee", (err,rows) => {
-        if(err) throw err;
-
-        console.log('Data received from Db:');
-        console.log(rows);
-    });
-
-
-    //Array of questions to add new employees
-    addRoles = () => {
-        inquirer
-            .prompt([
-                {
-                    type:"input",
-                    name:"firstName",
-                    message:"what is the employee's first name?",
-                },
-                {
-                    type: "input",
-                    name:"lastName",
-                    message:"what is the employee's last name?",
-                },
-                {
-                    type:"list",
-                    name: "employeeTitle",
-                    message: "what is the employee's title?",
-                    choices: ["Sales Lead", "Engineering Lead", "Finance Lead", "Legal Lead"],
-                },
-                {
-                    type:"list",
-                    name:"eManager",
-                    message:"who is the employee's manager?",
-                    choices: ["Blanche", "Dorothy", "Rose", "Sophia"],
-                },
-            ])
-            .then((data) => {
-
-            });
-            console.log(`${data.firstName} ${data.lastName} has been added to the database.`);
-            initEmployeeTracker();
-    };
-};
-
+    )   
+)
+    }
